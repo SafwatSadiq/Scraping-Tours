@@ -2,6 +2,8 @@ import requests
 import selectorlib
 import smtplib
 import os
+import time
+from threading import Thread
 
 
 URL = 'https://programmer100.pythonanywhere.com/tours/'
@@ -52,11 +54,16 @@ def read():
 
 
 if __name__ == '__main__':
-    scraped = scrape(URL)
-    extracted = extract(scraped)
-    print(extracted)
-    content = read()
-    if extracted != "No upcoming tours":
-        if not extracted in content:
-            store(extracted)
-            send_email(extracted)
+    while True:
+        scraped = scrape(URL)
+        extracted = extract(scraped)
+        print(extracted)
+        content = read()
+        if extracted != "No upcoming tours":
+            if not extracted in content:
+                store(extracted)
+                
+                email_thread = Thread(target=send_email, args=(extracted,))
+                email_thread.daemon = True
+                email_thread.start()
+        time.sleep(2)
