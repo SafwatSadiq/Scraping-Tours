@@ -1,5 +1,7 @@
 import requests
 import selectorlib
+import smtplib
+import os
 
 
 URL = 'https://programmer100.pythonanywhere.com/tours/'
@@ -20,8 +22,41 @@ def extract(source):
     return value
 
 
+def send_email(info):
+    password = os.getenv('PASSWORD')
+    sender = "apptestbeno@gmail.com"
+    receiver = "safwatsadiq14@gmail.com"
+    
+    message = f"""\
+Subject: New Tour Alert
+    
+{info}
+"""
+    
+    gmail = smtplib.SMTP('smtp.gmail.com', 587)
+    gmail.ehlo()
+    gmail.starttls()
+    gmail.login(sender, password)
+    gmail.sendmail(sender, receiver, message)
+    gmail.quit()
+
+
+def store(extracted):
+    with open("data.txt", "a") as file:
+        file.write(extracted + "\n")
+
+
+def read():
+    with open("data.txt", "r") as file:
+        return file.read()
+
+
 if __name__ == '__main__':
     scraped = scrape(URL)
     extracted = extract(scraped)
     print(extracted)
-    
+    content = read()
+    if extracted != "No upcoming tours":
+        if not extracted in content:
+            store(extracted)
+            send_email(extracted)
