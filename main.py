@@ -4,11 +4,21 @@ import smtplib
 import os
 import time
 from threading import Thread
+import sqlite3
 
-if not os.path.exists("data.txt"):
-    with open("data.txt", "w") as file:
-        pass
-
+if not os.path.exists("data.db"):
+    with open("data.db", "w") as file:
+        connection = sqlite3.connect("data.db")
+        cursor = connection.cursor()
+        cursor.execute("""
+                       CREATE TABLE events (
+                           Band TEXT, 
+                           City TEXT, 
+                           Date TEXT
+                        )
+                       """)
+else:
+    connection = sqlite3.connect("data.db")
 
 URL = 'https://programmer100.pythonanywhere.com/tours/'
 HEADERS = {
@@ -29,15 +39,17 @@ def extract(source):
     return value
 
 
-def send_email(info):
+def send_email(infos):
     password = os.getenv('PASSWORD')
     sender = "apptestbeno@gmail.com"
     receiver = "safwatsadiq14@gmail.com"
     
+    Band, City, Date = [info.strip() for info in infos.split(',')] 
+    
     message = f"""\
 Subject: New Tour Alert
     
-{info}
+There is a new tour of {Band} in {City} at {Date}
 """
     
     gmail = smtplib.SMTP('smtp.gmail.com', 587)
@@ -49,13 +61,22 @@ Subject: New Tour Alert
 
 
 def store(extracted):
-    with open("data.txt", "a") as file:
-        file.write(extracted + "\n")
+    row = extracted.split(',')
+    row = [item.strip() for item in row]
+    cursor = connection.cursor()
+    cursor.execute("INSERT INTO events VALUES(?,?,?)", row)
+    connection.commit()
 
 
-def read():
-    with open("data.txt", "r") as file:
-        return file.read()
+def read(extracted):
+    row = extracted.split(',')
+    row = [item.strip() for item in row]
+    band, city, date = row
+    cursor = connection.cursor()
+    cursor.execute("SELECT * FROM events where Band=? AND City=? AND Date=?", (band, city, date))
+    rows = cursor.fetchall()
+    return rows
+    
 
 
 if __name__ == '__main__':
@@ -63,9 +84,9 @@ if __name__ == '__main__':
         scraped = scrape(URL)
         extracted = extract(scraped)
         print(extracted)
-        content = read()
         if extracted != "No upcoming tours":
-            if not extracted in content:
+            content = read(extracted)
+            if not content:
                 store(extracted)
                 
                 email_thread = Thread(target=send_email, args=(extracted,))
